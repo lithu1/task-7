@@ -3,7 +3,7 @@ name: Docker Hub to ECR
 on:
   push:
     branches: [main]
-
+ 
 jobs:
   push-to-ecr:
     runs-on: ubuntu-latest
