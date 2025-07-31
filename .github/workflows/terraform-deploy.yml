@@ -1,0 +1,38 @@
+name: Terraform ECS Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    env:
+      ECR_IMAGE: 607700977843.dkr.ecr.us-east-2.amazonaws.com/strapi-ecr-prod
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var="image_url=$ECR_IMAGE:latest"
+
+      - name: Display ECS ALB URL
+        run: |
+          echo "🌐 ECS ALB URL:"
+          terraform output strapi_url
