@@ -2,6 +2,10 @@ provider "aws" {
   region = var.region
 }
 
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
 data "aws_vpc" "default" {
   default = true
 }
@@ -17,14 +21,16 @@ locals {
   unique_subnets = slice(distinct([
     for subnet_id in data.aws_subnets.default.ids : subnet_id
   ]), 0, 2)
+
+  suffix = random_id.suffix.hex
 }
 
 resource "aws_ecs_cluster" "this" {
-  name = "${var.app_name}-cluster"
+  name = "${var.app_name}-cluster-${local.suffix}"
 }
 
 resource "aws_security_group" "alb_sg" {
-  name        = "${var.app_name}-alb-sg"
+  name        = "${var.app_name}-alb-sg-${local.suffix}"
   description = "Allow HTTP to ALB"
   vpc_id      = data.aws_vpc.default.id
 
@@ -44,7 +50,7 @@ resource "aws_security_group" "alb_sg" {
 }
 
 resource "aws_security_group" "ecs_sg" {
-  name        = "${var.app_name}-ecs-sg"
+  name        = "${var.app_name}-ecs-sg-${local.suffix}"
   description = "Allow traffic from ALB to ECS"
   vpc_id      = data.aws_vpc.default.id
 
@@ -64,7 +70,7 @@ resource "aws_security_group" "ecs_sg" {
 }
 
 resource "aws_lb" "this" {
-  name               = "${var.app_name}-alb"
+  name               = "${var.app_name}-alb-${local.suffix}"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
@@ -72,7 +78,7 @@ resource "aws_lb" "this" {
 }
 
 resource "aws_lb_target_group" "this" {
-  name        = "${var.app_name}-tg"
+  name        = "${var.app_name}-tg-${local.suffix}"
   port        = 1337
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id
@@ -100,7 +106,7 @@ resource "aws_lb_listener" "http" {
 }
 
 resource "aws_ecs_task_definition" "this" {
-  family                   = "${var.app_name}-task"
+  family                   = "${var.app_name}-task-${local.suffix}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "512"
@@ -120,7 +126,7 @@ resource "aws_ecs_task_definition" "this" {
 }
 
 resource "aws_ecs_service" "this" {
-  name            = "${var.app_name}-service"
+  name            = "${var.app_name}-service-${local.suffix}"
   cluster         = aws_ecs_cluster.this.id
   launch_type     = "FARGATE"
   task_definition = aws_ecs_task_definition.this.arn
